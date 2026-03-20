@@ -148,6 +148,7 @@ def save_to_db(df, location, city_name):
     return count
 
 # haetaan kuukauden ajalta data ja tallennetaan se
+# HOX! Dataa hakiessa on mahdollisuus pysäyttää toiminto suoraan ohjelmasta, eikä tarvitse erikseen käynnistää iden kautta uudelleen.
 def fetch_and_store_month(city, year, month):
     import calendar
 
@@ -193,6 +194,7 @@ def fetch_and_store_month(city, year, month):
 
     print(f"\nValmis. Yhteensä {total} mittausta tallennettu.")
 
+# Päävalikko, vaihtoehtoina joko ohjelman sulkeminen tai datan haku ja tallennus tietokantaan
 def run():
     while True:
         _choice = input(
