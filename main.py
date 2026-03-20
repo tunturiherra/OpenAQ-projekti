@@ -36,7 +36,7 @@ def get_locations_by_bbox(bbox):
     response = requests.get(
         "https://api.openaq.org/v3/locations",
         params={"limit": 1000, "page": 1, "order_by": "id", "sort_order": "asc", "bbox": bbox},
-        headers={"X-API-Key": os.getenv("OPENAQ_API_KEY")},
+        headers={"X-API-Key": os.getenv("API_KEY")},
     )
     if response.status_code == 200:
         return response.json()["results"]
@@ -146,3 +146,75 @@ def save_to_db(df, location, city_name):
             conn.commit()
 
     return count
+
+# haetaan kuukauden ajalta data ja tallennetaan se
+def fetch_and_store_month(city, year, month):
+    import calendar
+
+    print(f"\nHaetaan bbox kaupungille '{city}'...")
+    bbox = get_bbox(city)
+    if not bbox:
+        return
+
+    print("Haetaan mittauspisteet...")
+    locations = get_locations_by_bbox(bbox)
+    if not locations:
+        print("Ei mittauspisteitä löydy.")
+        return
+
+    print(f"\nLöytyi {len(locations)} mittauspistettä:")
+    for i, loc in enumerate(locations, start=1):
+        print(f"  {i}: {loc['name']} (id={loc['id']})")
+
+    choice = input("\nValitse mittauspiste (numero) tai hae kaikki valitsemalla 0. Voit myös poistua tästä tilasta kirjoittamalla Q\n# ")
+
+    if choice == "q":
+        print("Peruutettu.")
+        return
+    if choice == "0":
+        selected = locations
+    else:
+        selected = [locations[int(choice) - 1]]
+
+    _, days_in_month = calendar.monthrange(year, month)
+    total = 0
+
+    for loc in selected:
+        print(f"\nKäsitellään: {loc['name']} (id={loc['id']})")
+        for day in range(1, days_in_month + 1):
+            print(f"  {year}-{month:02d}-{day:02d}...", end=" ")
+            df = fetch_s3_day(loc["id"], year, month, day)
+            if df is None:
+                print("ei dataa")
+                continue
+            saved = save_to_db(df, loc, city)
+            print(f"{saved} riviä tallennettu")
+            total += saved
+
+    print(f"\nValmis. Yhteensä {total} mittausta tallennettu.")
+
+def run():
+    while True:
+        _choice = input(
+            "\nValitse, mitä haluat tehdä:"
+            "\n0: Lopeta"
+            "\n1: Hae ja tallenna kuukauden data kaupungin nimellä\n"
+            "# "
+        )
+
+        if _choice == "0":
+            print("\nNäkemiin!")
+            break
+
+        elif _choice == "1":
+            city = input("Anna kaupungin nimi: ")
+            year = int(input("Anna vuosi: "))
+            month = int(input("Anna kuukausi: "))
+            fetch_and_store_month(city, year, month)
+
+        else:
+            print("Tuntematon valinta.")
+
+if __name__ == "__main__":
+    run()
+
