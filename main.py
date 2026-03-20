@@ -42,3 +42,23 @@ def get_locations_by_bbox(bbox):
         return response.json()["results"]
     print(f"Virhe locations-haussa: {response.status_code}")
     return []
+
+S3_BASE_URL = "https://openaq-data-archive.s3.amazonaws.com"
+
+# hakee csv.tiedoston s3:sta päivämäärän ja sijainti id:n perusteella
+def fetch_s3_day(location_id, year, month, day):
+    filename = f"location-{location_id}-{year}{month:02d}{day:02d}.csv.gz"
+    path = (
+        f"records/csv.gz/locationid={location_id}"
+        f"/year={year}/month={month:02d}"
+        f"/{filename}"
+    )
+    url = f"{S3_BASE_URL}/{path}"
+    response = requests.get(url, timeout=30)
+
+    if response.status_code == 404:
+        return None
+    response.raise_for_status()
+
+    with gzip.open(io.BytesIO(response.content)) as f:
+        return pd.read_csv(f)
