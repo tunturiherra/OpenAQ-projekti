@@ -4,6 +4,7 @@ import requests
 import pandas as pd
 import psycopg2
 import os
+import calendar
 from urllib.parse import quote
 from dotenv import load_dotenv
 
@@ -148,19 +149,26 @@ def save_to_db(df, location, city_name):
     return count
 
 # haetaan kuukauden ajalta data ja tallennetaan se
-# HOX! Dataa hakiessa on mahdollisuus pysäyttää toiminto suoraan ohjelmasta, eikä tarvitse erikseen käynnistää iden kautta uudelleen.
+# HOX! Dataa hakiessa on mahdollisuus peruuttaa toiminto suoraan ohjelmasta kirjoittamalla "q", eikä tarvitse erikseen käynnistää iden kautta uudelleen.
 def fetch_and_store_month(city, year, month):
-    import calendar
+    # vikasietoisuuden lisäämiseksi lisätty try-funktio sekä bboxille että mittauspisteiden hakuun.
+    try:
+        bbox = get_bbox(city)
+    except Exception as e:
+        print(f"Bbox-haku epäonnistui: {e}")
+        return
 
-    print(f"\nHaetaan bbox kaupungille '{city}'...")
-    bbox = get_bbox(city)
     if not bbox:
         return
 
-    print("Haetaan mittauspisteet...")
-    locations = get_locations_by_bbox(bbox)
+    try:
+        locations = get_locations_by_bbox(bbox)
+    except Exception as e:
+        print(f"Mittauspisteiden haussa tapahtui virhe: {e}")
+        return
+
     if not locations:
-        print("Ei mittauspisteitä löydy.")
+        print("Mittauspisteitä ei löydy.")
         return
 
     print(f"\nLöytyi {len(locations)} mittauspistettä:")
@@ -169,15 +177,22 @@ def fetch_and_store_month(city, year, month):
 
     choice = input("\nValitse mittauspiste (numero) tai hae kaikki valitsemalla 0. Voit myös poistua tästä tilasta kirjoittamalla Q\n# ")
 
-    if choice == "q":
-        print("Peruutettu.")
+    if choice.strip().lower() == "q":
+        print("Toiminto peruutettu")
         return
-    if choice == "0":
+    elif choice == "0":
         selected = locations
     else:
-        selected = [locations[int(choice) - 1]]
+        try:
+            idx = int(choice) - 1
+            if not (0 <= idx < len(locations)):
+                raise ValueError
+            selected = [locations[idx]]
+        except ValueError:
+            print("Tuntematon valinta. Numeroa ei löydy listasta.")
+            return
 
-    _, days_in_month = calendar.monthrange(year, month)
+    days_in_month = calendar.monthrange(year, month)[1]
     total = 0
 
     for loc in selected:
@@ -215,7 +230,7 @@ def run():
             fetch_and_store_month(city, year, month)
 
         else:
-            print("Tuntematon valinta.")
+            print("Et valinnut numeroa listasta.")
 
 if __name__ == "__main__":
     run()
